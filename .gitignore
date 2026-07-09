@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.egg-info/
+
+# Environment
+.env
+
+# Vercel
+.vercel
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Test cache
+.pytest_cache/
