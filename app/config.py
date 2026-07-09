@@ -20,12 +20,10 @@ class Settings:
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "edugenie-dev-secret-change-me")
 
-    _default_db_path = (
-        "/tmp/edugenie.db"
-        if os.getenv("VERCEL")
-        else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "edugenie.db")
-    )
-    DB_PATH: str = os.getenv("DB_PATH", "").strip() or _default_db_path
+    # Postgres connection string (Neon / Vercel Postgres). Required in production.
+    # Neon/Vercel usually give you this as POSTGRES_URL or DATABASE_URL -- we
+    # check both so you can paste whichever one your dashboard shows you.
+    DATABASE_URL: str = (os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL") or "").strip()
 
     @property
     def has_gemini(self) -> bool:
