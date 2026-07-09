@@ -1,29 +1,31 @@
 """
-Lightweight SQLite persistence for EduGenie accounts and history.
+Postgres persistence for EduGenie accounts and history.
 
-No ORM — just stdlib sqlite3 — to keep the deployment footprint small.
+Works against Neon / Vercel Postgres (or any standard Postgres instance).
+Uses plain psycopg2 -- no ORM -- to keep the deployment footprint small.
+A fresh connection is opened per request/operation, which is the right
+pattern for serverless: connections can't be safely kept alive across
+invocations anyway.
 """
-import os
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from contextlib import contextmanager
-from datetime import datetime, timezone
 
 from app.config import settings
 
-try:
-    os.makedirs(os.path.dirname(settings.DB_PATH), exist_ok=True)
-except OSError:
-    # Read-only filesystem (e.g. the deployed bundle on Vercel). settings.DB_PATH
-    # should already be pointed at a writable location like /tmp in that case --
-    # see app/config.py -- but never let this crash the whole app at import time.
+
+class DatabaseNotConfigured(RuntimeError):
     pass
 
 
 @contextmanager
 def get_conn():
-    conn = sqlite3.connect(settings.DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    if not settings.DATABASE_URL:
+        raise DatabaseNotConfigured(
+            "DATABASE_URL (or POSTGRES_URL) is not set. Add your Neon / Vercel "
+            "Postgres connection string as an environment variable."
+        )
+    conn = psycopg2.connect(settings.DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         yield conn
         conn.commit()
@@ -33,81 +35,91 @@ def get_conn():
 
 def init_db():
     with get_conn() as conn:
-        conn.execute(
+        cur = conn.cursor()
+        cur.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             )
             """
         )
-        conn.execute(
+        cur.execute(
             """
             CREATE TABLE IF NOT EXISTS history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 tool TEXT NOT NULL,
                 input_summary TEXT NOT NULL,
                 result TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             )
             """
         )
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------- users ----------
 
-def create_user(name: str, email: str, password_hash: str) -> sqlite3.Row:
+def create_user(name: str, email: str, password_hash: str):
     with get_conn() as conn:
-        cur = conn.execute(
-            "INSERT INTO users (name, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-            (name, email.lower().strip(), password_hash, now_iso()),
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO users (name, email, password_hash)
+            VALUES (%s, %s, %s)
+            RETURNING *
+            """,
+            (name, email.lower().strip(), password_hash),
         )
-        user_id = cur.lastrowid
-        return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return cur.fetchone()
 
 
 def get_user_by_email(email: str):
     with get_conn() as conn:
-        return conn.execute(
-            "SELECT * FROM users WHERE email = ?", (email.lower().strip(),)
-        ).fetchone()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE email = %s", (email.lower().strip(),))
+        return cur.fetchone()
 
 
 def get_user_by_id(user_id: int):
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        return cur.fetchone()
 
 
 # ---------- history ----------
 
 def add_history(user_id: int, tool: str, input_summary: str, result: str):
     with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO history (user_id, tool, input_summary, result, created_at) VALUES (?, ?, ?, ?, ?)",
-            (user_id, tool, input_summary[:300], result, now_iso()),
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO history (user_id, tool, input_summary, result)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (user_id, tool, input_summary[:300], result),
         )
 
 
 def list_history(user_id: int, limit: int = 50):
     with get_conn() as conn:
-        return conn.execute(
-            "SELECT * FROM history WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM history WHERE user_id = %s ORDER BY id DESC LIMIT %s",
             (user_id, limit),
-        ).fetchall()
+        )
+        return cur.fetchall()
 
 
 def delete_history_item(user_id: int, item_id: int) -> bool:
     with get_conn() as conn:
-        cur = conn.execute(
-            "DELETE FROM history WHERE id = ? AND user_id = ?", (item_id, user_id)
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM history WHERE id = %s AND user_id = %s",
+            (item_id, user_id),
         )
         return cur.rowcount > 0
