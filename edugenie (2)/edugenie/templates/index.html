@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduGenie — Learning Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="notebook">
+
+  <!-- Margin rail: rotating study tips, notebook-margin style -->
+  <aside class="margin-rail" aria-hidden="true">
+    <div class="margin-rail__spine"></div>
+    <div class="margin-rail__note" id="marginNote">
+      <span class="margin-rail__pin">✎</span>
+      <p>Ask a question the way you'd ask a classmate — EduGenie fills in the rest.</p>
+    </div>
+  </aside>
+
+  <div class="page">
+
+    <header class="masthead">
+      <div class="masthead__mark">Eg</div>
+      <div class="masthead__text">
+        <h1>EduGenie</h1>
+        <p>Google Gemini powered learning assistant</p>
+      </div>
+      <div class="masthead__status" id="backendStatus">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusLabel">checking backend…</span>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="EduGenie tools">
+      <button class="tab" data-panel="ask" role="tab" aria-selected="true">
+        <span class="tab__index">01</span>Ask
+      </button>
+      <button class="tab" data-panel="explain" role="tab" aria-selected="false">
+        <span class="tab__index">02</span>Explain
+      </button>
+      <button class="tab" data-panel="quiz" role="tab" aria-selected="false">
+        <span class="tab__index">03</span>Quiz me
+      </button>
+      <button class="tab" data-panel="summarize" role="tab" aria-selected="false">
+        <span class="tab__index">04</span>Summarize
+      </button>
+      <button class="tab" data-panel="path" role="tab" aria-selected="false">
+        <span class="tab__index">05</span>Learning path
+      </button>
+    </nav>
+
+    <main class="sheet">
+
+      <!-- ASK -->
+      <section class="panel is-active" id="panel-ask">
+        <h2>Ask a question</h2>
+        <p class="panel__hint">Get a direct answer plus a little extra context worth remembering.</p>
+        <form id="form-ask" class="form">
+          <label for="ask-question">Your question</label>
+          <textarea id="ask-question" required placeholder="e.g. Which is the largest ocean?"></textarea>
+          <button type="submit" class="btn">Ask EduGenie</button>
+        </form>
+        <div class="result" id="result-ask" hidden></div>
+      </section>
+
+      <!-- EXPLAIN -->
+      <section class="panel" id="panel-explain">
+        <h2>Explain a concept</h2>
+        <p class="panel__hint">Break down a topic in plain language, tuned to your level.</p>
+        <form id="form-explain" class="form">
+          <label for="explain-concept">Concept</label>
+          <input id="explain-concept" type="text" required placeholder="e.g. Pythagoras Theorem">
+          <label for="explain-level">Explain it like I'm...</label>
+          <select id="explain-level">
+            <option value="beginner">Just starting out</option>
+            <option value="intermediate">Comfortable with basics</option>
+            <option value="advanced">Ready for depth</option>
+          </select>
+          <button type="submit" class="btn">Explain it</button>
+        </form>
+        <div class="result" id="result-explain" hidden></div>
+      </section>
+
+      <!-- QUIZ -->
+      <section class="panel" id="panel-quiz">
+        <h2>Generate a quiz</h2>
+        <p class="panel__hint">Test yourself. Answers are hidden until you flip the card.</p>
+        <form id="form-quiz" class="form">
+          <label for="quiz-topic">Topic</label>
+          <input id="quiz-topic" type="text" required placeholder="e.g. Pythagoras Theorem">
+          <div class="form-row">
+            <div>
+              <label for="quiz-count">Questions</label>
+              <input id="quiz-count" type="number" min="1" max="15" value="5">
+            </div>
+            <div>
+              <label for="quiz-difficulty">Difficulty</label>
+              <select id="quiz-difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn">Generate quiz</button>
+        </form>
+        <div class="result" id="result-quiz" hidden></div>
+      </section>
+
+      <!-- SUMMARIZE -->
+      <section class="panel" id="panel-summarize">
+        <h2>Summarize study material</h2>
+        <p class="panel__hint">Paste notes, an article, or a chapter — get the exam-ready version.</p>
+        <form id="form-summarize" class="form">
+          <label for="summarize-text">Text to summarize</label>
+          <textarea id="summarize-text" required rows="8" placeholder="Paste your text here..."></textarea>
+          <label for="summarize-length">Summary length</label>
+          <select id="summarize-length">
+            <option value="short">Short (2-3 sentences)</option>
+            <option value="medium" selected>Medium (one paragraph)</option>
+            <option value="detailed">Detailed (with key points)</option>
+          </select>
+          <button type="submit" class="btn">Summarize</button>
+        </form>
+        <div class="result" id="result-summarize" hidden></div>
+      </section>
+
+      <!-- LEARNING PATH -->
+      <section class="panel" id="panel-path">
+        <h2>Build a learning path</h2>
+        <p class="panel__hint">A staged roadmap from where you are to where you want to be.</p>
+        <form id="form-path" class="form">
+          <label for="path-topic">Topic</label>
+          <input id="path-topic" type="text" required placeholder="e.g. SQL">
+          <label for="path-level">Current level</label>
+          <select id="path-level">
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+          <label for="path-goal">Goal (optional)</label>
+          <input id="path-goal" type="text" placeholder="e.g. be job-ready for a data analyst role">
+          <button type="submit" class="btn">Build my path</button>
+        </form>
+        <div class="result" id="result-path" hidden></div>
+      </section>
+
+    </main>
+
+    <footer class="colophon">
+      <span>Backend: FastAPI · Model: {{ "Google Gemini" if has_gemini else "local fallback (set GEMINI_API_KEY to use Gemini)" }}</span>
+    </footer>
+
+  </div>
+</div>
+
+<template id="tpl-quiz-card">
+  <article class="quiz-card">
+    <div class="quiz-card__front">
+      <span class="quiz-card__num"></span>
+      <p class="quiz-card__question"></p>
+      <ul class="quiz-card__options"></ul>
+      <button type="button" class="btn btn--ghost quiz-card__reveal">Reveal answer</button>
+    </div>
+    <div class="quiz-card__back" hidden>
+      <p class="quiz-card__correct"></p>
+      <p class="quiz-card__explanation"></p>
+    </div>
+  </article>
+</template>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
