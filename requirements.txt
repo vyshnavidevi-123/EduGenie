@@ -10,6 +10,3 @@ pydantic==2.7.4
 # (which cap function bundles at 500MB -- torch + transformers alone blow
 # past that). This means the local LaMini-Flan-T5 fallback is disabled
 # unless you also install requirements-local-fallback.txt.
-#
-# For local development with the fallback model enabled, run:
-#   pip install -r requirements.txt -r requirements-local-fallback.txt
